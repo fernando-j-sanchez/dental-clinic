@@ -120,3 +120,55 @@
 .text-pretty {
   text-wrap: pretty;
 }
+
+/* ---------- Animaciones de dientecitos (login) ---------- */
+@keyframes tooth-float {
+  0%, 100% { transform: translateY(0) rotate(var(--tilt, 0deg)); }
+  50% { transform: translateY(-18px) rotate(calc(var(--tilt, 0deg) * -1)); }
+}
+
+@keyframes tooth-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+@keyframes tooth-sparkle {
+  0%, 100% { transform: scale(0.6) rotate(0deg); opacity: 0.4; }
+  50% { transform: scale(1.15) rotate(25deg); opacity: 1; }
+}
+
+@keyframes tooth-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(0) scale(1.08, 0.92); }
+  55% { transform: translateY(-26px) scale(0.95, 1.05); }
+  80% { transform: translateY(0) scale(1.04, 0.96); }
+}
+
+@keyframes bubble-rise {
+  0% { transform: translateY(0) scale(0.6); opacity: 0; }
+  15% { opacity: 0.7; }
+  100% { transform: translateY(-110vh) scale(1.2); opacity: 0; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+.tooth-float { animation: tooth-float var(--duration, 6s) ease-in-out infinite; animation-delay: var(--delay, 0s); }
+.tooth-hop { animation: tooth-hop 2.4s ease-in-out infinite; transform-origin: bottom center; }
+.tooth-eyes { animation: tooth-blink 4.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.tooth-sparkle { animation: tooth-sparkle 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.bubble { animation: bubble-rise var(--duration, 12s) linear infinite; animation-delay: var(--delay, 0s); }
+.fade-up { animation: fade-up 0.5s ease-out both; animation-delay: var(--delay, 0s); }
+.shake { animation: shake 0.4s ease-in-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .tooth-float, .tooth-hop, .tooth-eyes, .tooth-sparkle, .bubble, .fade-up, .shake { animation: none; }
+}
