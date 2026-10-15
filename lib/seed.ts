@@ -1,7 +1,7 @@
 import { daysFromToday } from "./dates"
 import type { ClinicalNote, Database, Patient, User, WeeklySchedule } from "./types"
 
-export const DB_VERSION = 3
+export const DB_VERSION = 4
 
 const weekdays = (start: string, end: string, saturday?: [string, string]): WeeklySchedule => [
   null,
@@ -42,6 +42,8 @@ export function createSeed(): Database {
     { id: "u_teacher", orgId: SCHOOL, email: "maestro@escuela.mx", password: "maestro123", firstName: "Jorge", lastName: "Herrera", role: "teacher", active: true, specialty: "Periodoncia", licenseNumber: "CED-1112223", schedule: weekdays("08:00", "14:00"), createdAt: now },
     { id: "u_stud1", orgId: SCHOOL, email: "alumno@escuela.mx", password: "alumno123", firstName: "Sofía", lastName: "Ramírez", role: "student", active: true, enrollment: "OD-2023-014", supervisorId: "u_teacher", schedule: weekdays("08:00", "13:00"), createdAt: now },
     { id: "u_stud2", orgId: SCHOOL, email: "alumno2@escuela.mx", password: "alumno123", firstName: "Diego", lastName: "Torres", role: "student", active: true, enrollment: "OD-2023-027", supervisorId: "u_teacher", schedule: weekdays("08:00", "13:00"), createdAt: now },
+    // Se unió con el código del grupo y espera que el maestro la apruebe
+    { id: "u_stud3", orgId: SCHOOL, email: "valeria@escuela.mx", password: "alumno123", firstName: "Valeria", lastName: "Cruz", role: "student", active: true, enrollment: "OD-2023-031", schedule: weekdays("08:00", "13:00"), createdAt: now },
   ]
 
   const patient = (p: Omit<Patient, "status" | "createdAt" | "emergencyContact" | "emergencyPhone" | "address"> & Partial<Patient>): Patient => ({
@@ -82,8 +84,8 @@ export function createSeed(): Database {
   return {
     version: DB_VERSION,
     organizations: [
-      { id: CLINIC, name: "Clínica Dental Sonrisa", type: "clinic", city: "Toluca", doctorsSeeAllPatients: false, autoConfirmPatientBookings: false, createdAt: now },
-      { id: SCHOOL, name: "Facultad de Odontología (demo)", type: "school", city: "Toluca", doctorsSeeAllPatients: false, autoConfirmPatientBookings: false, createdAt: now },
+      { id: CLINIC, name: "Clínica Dental Sonrisa", type: "clinic", city: "Toluca", doctorsSeeAllPatients: false, autoConfirmPatientBookings: false, brand: "sky", createdAt: now },
+      { id: SCHOOL, name: "Facultad de Odontología (demo)", type: "school", city: "Toluca", doctorsSeeAllPatients: false, autoConfirmPatientBookings: false, brand: "violet", createdAt: now },
     ],
     users,
     patients,
@@ -97,9 +99,18 @@ export function createSeed(): Database {
     ],
     transfers: [],
     audit: [],
+    groups: [
+      { id: "g1", orgId: SCHOOL, name: "7°A", section: "Periodoncia", term: "2026-B", shift: "matutino", teacherId: "u_teacher", code: "PERIO-7A-K4X9", codeActive: true, requireApproval: true, maxMembers: 30, archived: false, createdAt: now },
+    ],
+    members: [
+      { id: "m1", groupId: "g1", userId: "u_stud1", status: "approved", joinedAt: now },
+      { id: "m2", groupId: "g1", userId: "u_stud2", status: "approved", joinedAt: now },
+      { id: "m3", groupId: "g1", userId: "u_stud3", status: "pending", joinedAt: now },
+    ],
     notifications: [
       { id: "nt1", userId: "u_pat1", title: "¡Bienvenida a tu portal!", body: "Aquí puedes ver tus citas, tu tratamiento y agendar nuevas visitas.", at: now, read: false },
       { id: "nt2", userId: "u_teacher", title: "Nota por validar", body: "Sofía Ramírez envió “Raspado y alisado cuadrante 1”.", at: now, read: false },
+      { id: "nt3", userId: "u_teacher", title: "Solicitud para unirse a 7°A", body: "Valeria Cruz quiere entrar a tu grupo de Periodoncia.", at: now, read: false },
     ],
   }
 }

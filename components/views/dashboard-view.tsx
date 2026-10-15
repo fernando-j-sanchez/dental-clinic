@@ -3,6 +3,7 @@
 import { ArrowRightLeft, CalendarCheck, ClipboardCheck, Inbox, UserRound } from "lucide-react"
 import { EmptyState, Pill, StatCard } from "@/components/common"
 import { Tooth } from "@/components/tooth"
+import { brandOf } from "@/lib/branding"
 import { daysFromToday, formatDate, formatDateTime, formatTime, todayKey } from "@/lib/dates"
 import { APPOINTMENT_STATUS, APPOINTMENT_TYPE_LABELS, ROLE_LABELS, isProvider } from "@/lib/permissions"
 import { visiblePatients } from "@/lib/selectors"
@@ -38,7 +39,7 @@ export function DashboardView({ onOpenPatient }: { onOpenPatient: (id: string) =
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-500 via-cyan-500 to-teal-400 p-6 text-white shadow-lg shadow-sky-200 sm:p-8">
+      <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br p-6 text-white shadow-lg sm:p-8 ${brandOf(currentOrg).hero}`}>
         <div className="relative z-10 max-w-xl">
           <p className="text-sm text-white/80">{ROLE_LABELS[currentUser.role]} · {currentOrg.name}</p>
           <h1 className="mt-1 text-3xl font-bold">
@@ -50,7 +51,7 @@ export function DashboardView({ onOpenPatient }: { onOpenPatient: (id: string) =
           </p>
         </div>
         <div className="tooth-float absolute -bottom-4 right-6 hidden sm:block" style={{ ["--tilt" as string]: "-6deg" }}>
-          <Tooth size={120} mood="sparkle" />
+          <Tooth size={120} mood="sparkle" cap={currentOrg.type === "school"} />
         </div>
       </div>
 

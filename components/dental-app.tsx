@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { AppShell, type View } from "@/components/app-shell"
+import { JoinScreen, WaitingScreen } from "@/components/join-screen"
 import { LoginScreen } from "@/components/login-screen"
 import { Tooth } from "@/components/tooth"
 import { AuditView, OrganizationsView, SettingsView, ValidationsView } from "@/components/views/admin-views"
 import { AgendaView } from "@/components/views/agenda-view"
 import { DashboardView } from "@/components/views/dashboard-view"
+import { GroupsView } from "@/components/views/groups-view"
 import { PatientPortal } from "@/components/views/patient-portal"
 import { PatientRecord } from "@/components/views/patient-record"
 import { PatientsView } from "@/components/views/patients-view"
@@ -14,16 +16,16 @@ import { MyScheduleView } from "@/components/views/schedule-editor"
 import { UsersView } from "@/components/views/users-view"
 import { StoreProvider, useStore } from "@/lib/store"
 
-export function DentalApp() {
+export function DentalApp({ joinCode }: { joinCode?: string }) {
   return (
     <StoreProvider>
-      <Router />
+      <Router joinCode={joinCode} />
     </StoreProvider>
   )
 }
 
-function Router() {
-  const { loaded, currentUser, orgId } = useStore()
+function Router({ joinCode }: { joinCode?: string }) {
+  const { db, loaded, currentUser, orgId } = useStore()
   const [view, setView] = useState<View>("dashboard")
   const [patientId, setPatientId] = useState<string | null>(null)
 
@@ -43,8 +45,13 @@ function Router() {
     )
   }
 
+  if (joinCode) return <JoinScreen code={joinCode} />
   if (!currentUser) return <LoginScreen />
   if (currentUser.role === "patient") return <PatientPortal />
+  // Alumno que se registró con código pero aún no lo aceptan en ningún grupo
+  if (currentUser.role === "student" && !db.members.some((m) => m.userId === currentUser.id && m.status === "approved")) {
+    return <WaitingScreen />
+  }
 
   const openPatient = (id: string) => {
     setPatientId(id)
@@ -61,6 +68,7 @@ function Router() {
   else if (view === "dashboard") content = <DashboardView onOpenPatient={openPatient} />
   else if (view === "patients") content = <PatientsView onOpenPatient={openPatient} />
   else if (view === "validations") content = <ValidationsView onOpenPatient={openPatient} />
+  else if (view === "groups") content = <GroupsView />
   else if (view === "agenda") content = <AgendaView onOpenPatient={openPatient} />
   else if (view === "schedule") content = <MyScheduleView />
   else if (view === "users") content = <UsersView />

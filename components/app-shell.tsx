@@ -6,6 +6,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Clock,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -20,15 +21,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, RoleBadge } from "@/components/common"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { ToothLogo } from "@/components/tooth"
+import { brandOf } from "@/lib/branding"
 import { ORG_TYPE_LABELS, can, isProvider } from "@/lib/permissions"
 import type { OrgType } from "@/lib/types"
 import { fullName, useStore } from "@/lib/store"
-import type { User } from "@/lib/types"
+import type { Organization, User } from "@/lib/types"
 
 export type View =
   | "dashboard"
   | "patients"
   | "validations"
+  | "groups"
   | "agenda"
   | "schedule"
   | "users"
@@ -43,10 +46,13 @@ interface NavItem {
   badge?: number
 }
 
-function navFor(user: User, pendingReviews: number): NavItem[] {
+function navFor(user: User, pendingReviews: number, org: Organization | undefined, pendingJoins: number): NavItem[] {
   const items: NavItem[] = [{ id: "dashboard", label: "Resumen", icon: LayoutDashboard }]
   if (can.manageOrganizations(user)) items.push({ id: "organizations", label: "Organizaciones", icon: Building2 })
   items.push({ id: "patients", label: user.role === "dentist" || user.role === "student" ? "Mis pacientes" : "Pacientes", icon: UserRound })
+  if (org?.type === "school" && (user.role === "teacher" || can.manageUsers(user))) {
+    items.push({ id: "groups", label: user.role === "teacher" ? "Mis grupos" : "Grupos", icon: GraduationCap, badge: pendingJoins })
+  }
   if (can.validateNotes(user)) items.push({ id: "validations", label: "Validaciones", icon: ClipboardCheck, badge: pendingReviews })
   items.push({ id: "agenda", label: "Agenda", icon: CalendarDays })
   if (isProvider(user.role)) items.push({ id: "schedule", label: "Mi horario", icon: Clock })
@@ -70,14 +76,25 @@ export function AppShell({ view, onNavigate, children }: { view: View; onNavigat
   const pendingReviews = db.notes.filter(
     (n) => n.status === "pending_review" && db.users.find((u) => u.id === n.authorId)?.supervisorId === currentUser.id,
   ).length
-  const items = navFor(currentUser, pendingReviews)
+  const pendingJoins = db.members.filter((m) => {
+    if (m.status !== "pending") return false
+    const g = db.groups.find((x) => x.id === m.groupId)
+    return g?.orgId === currentOrg?.id && (currentUser.role !== "teacher" || g?.teacherId === currentUser.id)
+  }).length
+  const items = navFor(currentUser, pendingReviews, currentOrg, pendingJoins)
+  const brand = brandOf(currentOrg)
 
   const sidebar = (
     <div className="flex min-h-full flex-col">
       <div className="flex items-center gap-3 px-5 py-5">
-        <ToothLogo size={38} />
-        <div>
-          <p className="font-bold leading-tight text-slate-900">DentalCare</p>
+        {currentOrg?.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={currentOrg.logoUrl} alt="" className="h-[38px] w-[38px] rounded-xl border border-slate-100 object-contain p-0.5" />
+        ) : (
+          <ToothLogo size={38} />
+        )}
+        <div className="min-w-0">
+          <p className="truncate font-bold leading-tight text-slate-900">{currentOrg?.logoUrl ? currentOrg.name : "DentalCare"}</p>
           <p className="text-xs text-slate-500">{currentOrg ? ORG_TYPE_LABELS[currentOrg.type] : "Plataforma"}</p>
         </div>
       </div>
@@ -112,11 +129,7 @@ export function AppShell({ view, onNavigate, children }: { view: View; onNavigat
                 setMobileOpen(false)
               }}
               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                active
-                  ? mode === "school"
-                    ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-md shadow-violet-200"
-                    : "bg-gradient-to-r from-sky-500 to-cyan-500 text-white shadow-md shadow-sky-200"
-                  : "text-slate-600 hover:bg-slate-100"
+                active ? `bg-gradient-to-r text-white shadow-md ${brand.nav}` : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               <Icon className="h-4 w-4" />

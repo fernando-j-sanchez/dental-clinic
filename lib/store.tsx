@@ -9,6 +9,7 @@ import type {
   Attachment,
   ClinicalNote,
   Database,
+  Group,
   Organization,
   Patient,
   Transfer,
@@ -34,6 +35,24 @@ export const providerTitle = (u?: User | null) => {
   if (u.role === "dentist") return `Dr(a). ${fullName(u)}`
   if (u.role === "teacher") return `Mtro(a). ${fullName(u)}`
   return fullName(u)
+}
+
+// Código legible tipo "PERIO-7A-K4X9" (sin letras confusas como O/0 o I/1)
+function generateGroupCode(section: string, name: string, existing: string[]) {
+  const clean = (text: string, max: number) =>
+    text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "")
+      .slice(0, max)
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  let code = ""
+  do {
+    const suffix = Array.from({ length: 4 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("")
+    code = [clean(section, 5) || "GRUPO", clean(name, 4), suffix].filter(Boolean).join("-")
+  } while (existing.includes(code))
+  return code
 }
 
 export interface Reassignment {
@@ -332,6 +351,134 @@ function useStoreValue() {
       mutate((draft) => {
         const o = draft.organizations.find((x) => x.id === id)
         if (o) Object.assign(o, data)
+      })
+    },
+
+    // ---------- Grupos (tipo Teams) ----------
+
+    findGroupByCode(code: string) {
+      const normalized = code.trim().toUpperCase()
+      return db.groups.find((g) => g.code === normalized)
+    },
+
+    createGroup(data: Pick<Group, "name" | "section" | "term" | "shift" | "requireApproval" | "maxMembers"> & { teacherId?: string }) {
+      if (!currentUser || !orgId) return null
+      const teacherId = data.teacherId ?? currentUser.id
+      const code = generateGroupCode(data.section, data.name, db.groups.map((g) => g.code))
+      mutate((draft) => {
+        draft.groups.push({ ...data, id: newId(), orgId, teacherId, code, codeActive: true, archived: false, createdAt: now() })
+        pushAudit(draft, "Creó grupo", `${data.section} · ${data.name} (${code})`)
+      })
+      return code
+    },
+
+    updateGroup(id: string, data: Partial<Group>) {
+      mutate((draft) => {
+        const g = draft.groups.find((x) => x.id === id)
+        if (g) Object.assign(g, data)
+      })
+    },
+
+    // Si el código se filtró, se genera uno nuevo y el anterior deja de funcionar
+    regenerateGroupCode(id: string) {
+      const group = db.groups.find((g) => g.id === id)
+      if (!group) return
+      const code = generateGroupCode(group.section, group.name, db.groups.map((g) => g.code))
+      mutate((draft) => {
+        const g = draft.groups.find((x) => x.id === id)
+        if (g) Object.assign(g, { code, codeActive: true })
+      })
+    },
+
+    // Unirse con código. Si `register` viene, se crea la cuenta del alumno en el momento.
+    joinGroup(
+      code: string,
+      register?: { firstName: string; lastName: string; enrollment: string; email: string; password: string },
+    ): { ok: true; pending: boolean } | { ok: false; error: string } {
+      const group = actions.findGroupByCode(code)
+      if (!group || group.archived) return { ok: false, error: "Ese código no existe. Pídele a tu maestro el código actualizado." }
+      if (!group.codeActive) return { ok: false, error: "El maestro pausó las inscripciones a este grupo." }
+      const org = db.organizations.find((o) => o.id === group.orgId)
+      const taken = db.members.filter((m) => m.groupId === group.id).length
+      if (group.maxMembers && taken >= group.maxMembers) return { ok: false, error: "El grupo ya está lleno." }
+
+      let userId: string
+      let email: string
+      if (register) {
+        email = register.email.trim().toLowerCase()
+        if (db.users.some((u) => u.email.toLowerCase() === email)) return { ok: false, error: "Ese correo ya tiene cuenta. Inicia sesión para unirte." }
+        userId = newId()
+      } else {
+        if (!currentUser) return { ok: false, error: "Inicia sesión primero" }
+        if (currentUser.role !== "student" || currentUser.orgId !== group.orgId) {
+          return { ok: false, error: "Este código es para alumnos de esta facultad." }
+        }
+        if (db.members.some((m) => m.groupId === group.id && m.userId === currentUser.id)) return { ok: false, error: "Ya estás en este grupo." }
+        userId = currentUser.id
+        email = currentUser.email
+      }
+
+      // Restricción opcional por correo institucional (no todas las escuelas lo tienen)
+      const domain = org?.emailDomain?.trim().replace(/^@/, "").toLowerCase()
+      if (domain && !email.endsWith(`@${domain}`)) return { ok: false, error: `Usa tu correo institucional (@${domain}).` }
+
+      const pending = group.requireApproval
+      const teacher = db.users.find((u) => u.id === group.teacherId)
+      mutate((draft) => {
+        if (register) {
+          draft.users.push({
+            id: userId,
+            orgId: group.orgId,
+            email,
+            password: register.password,
+            firstName: register.firstName,
+            lastName: register.lastName,
+            enrollment: register.enrollment,
+            role: "student",
+            active: true,
+            supervisorId: pending ? undefined : group.teacherId,
+            schedule: [null, ...Array(5).fill({ start: "08:00", end: "13:00" }), null],
+            createdAt: now(),
+          })
+        } else if (!pending) {
+          const u = draft.users.find((x) => x.id === userId)
+          if (u) u.supervisorId = group.teacherId
+        }
+        draft.members.push({ id: newId(), groupId: group.id, userId, status: pending ? "pending" : "approved", joinedAt: now() })
+        const name = register ? `${register.firstName} ${register.lastName}` : fullName(currentUser)
+        if (teacher) {
+          pushNotification(
+            draft,
+            teacher.id,
+            pending ? `Solicitud para unirse a ${group.name}` : `Nuevo alumno en ${group.name}`,
+            `${name} · ${group.section}`,
+          )
+        }
+      })
+      if (register) setSession({ userId, activeOrgId: group.orgId })
+      return { ok: true, pending }
+    },
+
+    approveMembers(memberIds: string[]) {
+      mutate((draft) => {
+        memberIds.forEach((id) => {
+          const m = draft.members.find((x) => x.id === id)
+          const g = draft.groups.find((x) => x.id === m?.groupId)
+          const u = draft.users.find((x) => x.id === m?.userId)
+          if (!m || !g || !u) return
+          m.status = "approved"
+          u.supervisorId = g.teacherId
+          pushNotification(draft, u.id, "¡Ya estás dentro! 🎉", `Te aceptaron en ${g.section} · ${g.name}`)
+        })
+      })
+    },
+
+    removeMember(memberId: string) {
+      mutate((draft) => {
+        const m = draft.members.find((x) => x.id === memberId)
+        const g = draft.groups.find((x) => x.id === m?.groupId)
+        draft.members = draft.members.filter((x) => x.id !== memberId)
+        if (m && g && m.status === "pending") pushNotification(draft, m.userId, "Solicitud no aceptada", `${g.section} · ${g.name}`)
       })
     },
 

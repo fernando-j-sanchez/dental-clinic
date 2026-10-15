@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, type FormEvent } from "react"
+import { useRouter } from "next/navigation"
 import { Eye, EyeOff, GraduationCap, LogIn, Stethoscope, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -161,6 +162,8 @@ export function LoginScreen() {
             </TabsContent>
           </Tabs>
 
+          {isSchool && <JoinWithCode />}
+
           <DemoAccounts mode={mode} onPick={(email, password) => login(email, password)} />
 
           <button
@@ -173,6 +176,29 @@ export function LoginScreen() {
         </div>
       </section>
     </div>
+  )
+}
+
+// Alumnos: entrar con el código que les dio su maestro (como unirse a un equipo de Teams)
+function JoinWithCode() {
+  const router = useRouter()
+  const [code, setCode] = useState("")
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (code.trim()) router.push(`/unirse/${code.trim().toUpperCase()}`)
+      }}
+      className="mt-6 rounded-xl border border-violet-200 bg-violet-50/70 p-4"
+    >
+      <p className="text-sm font-medium text-violet-900">🎓 ¿Eres alumno y tu maestro te dio un código?</p>
+      <div className="mt-2 flex gap-2">
+        <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="PERIO-7A-K4X9" className="bg-white font-mono uppercase" />
+        <Button type="submit" className="bg-violet-600 text-white hover:bg-violet-700">
+          Unirme
+        </Button>
+      </div>
+    </form>
   )
 }
 

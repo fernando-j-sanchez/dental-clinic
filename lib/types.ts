@@ -14,7 +14,39 @@ export interface Organization {
   doctorsSeeAllPatients: boolean
   // Si es true, las citas que pide el paciente se confirman solas
   autoConfirmPatientBookings: boolean
+  // Opcional: solo se aceptan registros con este dominio (ej. "alumno.uaemex.mx")
+  emailDomain?: string
+  // Personalización
+  logoUrl?: string
+  brand?: BrandKey
   createdAt: string
+}
+
+export type BrandKey = "sky" | "violet" | "emerald" | "rose" | "amber" | "greengold" | "navy"
+
+// Grupo tipo "Teams": el maestro comparte un código y los alumnos se unen solos
+export interface Group {
+  id: string
+  orgId: string
+  name: string // "7°A"
+  section: string // "Periodoncia"
+  term: string // "2026-B"
+  shift: "matutino" | "vespertino" | "mixto"
+  teacherId: string
+  code: string
+  codeActive: boolean
+  requireApproval: boolean
+  maxMembers?: number
+  archived: boolean
+  createdAt: string
+}
+
+export interface GroupMember {
+  id: string
+  groupId: string
+  userId: string
+  status: "pending" | "approved"
+  joinedAt: string
 }
 
 export interface DaySchedule {
@@ -161,4 +193,6 @@ export interface Database {
   transfers: Transfer[]
   audit: AuditEntry[]
   notifications: AppNotification[]
+  groups: Group[]
+  members: GroupMember[]
 }

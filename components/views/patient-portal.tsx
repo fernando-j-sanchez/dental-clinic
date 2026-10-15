@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { EmptyState, Pill } from "@/components/common"
 import { NotificationsBell } from "@/components/notifications-bell"
 import { Tooth, ToothLogo } from "@/components/tooth"
+import { brandOf } from "@/lib/branding"
 import { daysFromToday, formatDate, formatLongDate, formatTime, parseDateKey, todayKey } from "@/lib/dates"
 import { APPOINTMENT_STATUS, APPOINTMENT_TYPE_LABELS } from "@/lib/permissions"
 import { getFreeSlots } from "@/lib/slots"
@@ -32,7 +33,12 @@ export function PatientPortal() {
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-white pb-24 sm:pb-8">
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-3xl items-center gap-3 px-4">
-          <ToothLogo size={36} />
+          {currentOrg?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={currentOrg.logoUrl} alt="" className="h-9 w-9 rounded-xl object-contain" />
+          ) : (
+            <ToothLogo size={36} />
+          )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-slate-900">{currentOrg?.name}</p>
             <p className="text-xs text-slate-500">Portal del paciente</p>
@@ -83,7 +89,7 @@ export function PatientPortal() {
 }
 
 function PortalHome({ patientId, onBook, onTreatment }: { patientId: string; onBook: () => void; onTreatment: () => void }) {
-  const { db, currentUser } = useStore()
+  const { db, currentUser, currentOrg } = useStore()
   const userById = useUserLookup()
   const patient = db.patients.find((p) => p.id === patientId)!
   const today = todayKey()
@@ -96,7 +102,7 @@ function PortalHome({ patientId, onBook, onTreatment }: { patientId: string; onB
 
   return (
     <div className="space-y-4">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-sky-500 to-cyan-400 p-6 text-white shadow-lg shadow-sky-200">
+      <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-br p-6 text-white shadow-lg ${brandOf(currentOrg).hero}`}>
         <p className="text-sm text-white/80">¡Hola!</p>
         <h1 className="text-2xl font-bold">{currentUser?.firstName} 😁</h1>
         <p className="mt-1 text-sm text-white/90">Tu responsable: {providerTitle(userById(patient.providerId))}</p>
